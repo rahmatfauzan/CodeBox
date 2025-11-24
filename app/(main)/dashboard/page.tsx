@@ -1,105 +1,127 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardClient } from "./components/dashboard";
+import { unstable_cache } from "next/cache";
 
-export default async function DashboardPage() {
-  const supabase = await createClient();
+// Cache stats untuk 60 detik
+const getCachedUserStats = unstable_cache(
+  async (userId: string) => {
+    const supabase = await createClient();
 
-  // 1. Ambil User
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+    // Fetch semua stats dalam 1 query yang lebih efisien
+    const { data: documents } = await supabase
+      .from("documents")
+      .select("view_count, like_count, bookmark_count")
+      .eq("author_id", userId);
 
-  const fullName = user.user_metadata?.full_name || "Developer";
-  const firstName = fullName.split(" ")[0];
+    if (!documents) {
+      return {
+        totalDocs: 0,
+        totalViews: 0,
+        totalLikes: 0,
+        totalBookmarks: 0,
+      };
+    }
 
-  // Get current time in WIB (UTC+7)
+    return {
+      totalDocs: documents.length,
+      totalViews: documents.reduce(
+        (acc, doc) => acc + (doc.view_count || 0),
+        0
+      ),
+      totalLikes: documents.reduce(
+        (acc, doc) => acc + (doc.like_count || 0),
+        0
+      ),
+      totalBookmarks: documents.reduce(
+        (acc, doc) => acc + (doc.bookmark_count || 0),
+        0
+      ),
+    };
+  },
+  ["user-dashboard-stats"],
+  {
+    revalidate: 60, // Cache selama 60 detik
+    tags: ["dashboard-stats"],
+  }
+);
+
+// Cache recent docs untuk 30 detik
+const getCachedRecentDocs = unstable_cache(
+  async (userId: string) => {
+    const supabase = await createClient();
+
+    const { data } = await supabase
+      .from("documents")
+      .select(
+        `
+        id,
+        title,
+        slug,
+        excerpt,
+        created_at,
+        difficulty,
+        visibility,
+        status,
+        like_count,
+        bookmark_count,
+        category:categories(name, icon)
+      `
+      )
+      .eq("author_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(6);
+
+    return data || [];
+  },
+  ["user-recent-docs"],
+  {
+    revalidate: 30,
+    tags: ["recent-docs"],
+  }
+);
+
+// Helper untuk greeting berdasarkan waktu WIB
+function getGreeting(): string {
   const now = new Date();
   const wibTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
   const hour = wibTime.getUTCHours();
 
-  // Greeting based on time - Tanpa emoji
-  let greeting = "Selamat Pagi";
-  if (hour >= 11 && hour < 15) {
-    greeting = "Selamat Siang";
-  } else if (hour >= 15 && hour < 18) {
-    greeting = "Selamat Sore";
-  } else if (hour >= 18 || hour < 4) {
-    greeting = "Selamat Malam";
-  }
+  if (hour >= 4 && hour < 11) return "Selamat Pagi";
+  if (hour >= 11 && hour < 15) return "Selamat Siang";
+  if (hour >= 15 && hour < 18) return "Selamat Sore";
+  return "Selamat Malam";
+}
 
-  // 2. Fetch Data Statistik
-  const [
-    documentsCount,
-    viewsCount,
-    recentDocsResult,
-    likesCount,
-    bookmarksCount,
-  ] = await Promise.all([
-    // Total Documents
-    supabase
-      .from("documents")
-      .select("*", { count: "exact", head: true })
-      .eq("author_id", user.id),
+export default async function DashboardPage() {
+  const supabase = await createClient();
 
-    // Total Views
-    supabase.from("documents").select("view_count").eq("author_id", user.id),
+  // 1. Ambil User - ini harus real-time, tidak di-cache
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    // Recent Documents dengan likes_count dan bookmark_count
-    supabase
-      .from("documents")
-      .select(
-        `
-          id,
-          title,
-          slug,
-          excerpt,
-          created_at,
-          difficulty,
-          category:categories(name, icon),
-          visibility,
-          status,
-          like_count,
-          bookmark_count
-          `
-      )
-      .eq("author_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(6),
+  if (!user) redirect("/login");
 
-    // Total Likes dari semua dokumen user
-    supabase.from("documents").select("like_count").eq("author_id", user.id),
+  const fullName = user.user_metadata?.full_name || "Developer";
+  const firstName = fullName.split(" ")[0];
+  const greeting = getGreeting();
 
-    // Total Bookmarks dari semua dokumen user
-    supabase
-      .from("documents")
-      .select("bookmark_count")
-      .eq("author_id", user.id),
+  // 2. Fetch data dengan cache - parallel execution
+  const [stats, recentDocs] = await Promise.all([
+    getCachedUserStats(user.id),
+    getCachedRecentDocs(user.id),
   ]);
-
-  const totalDocs = documentsCount.count || 0;
-  const totalViews =
-    viewsCount.data?.reduce((acc, curr) => acc + (curr.view_count || 0), 0) ||
-    0;
-  const totalLikes =
-    likesCount.data?.reduce((acc, curr) => acc + (curr.like_count || 0), 0) ||
-    0;
-  const totalBookmarks =
-    bookmarksCount.data?.reduce(
-      (acc, curr) => acc + (curr.bookmark_count || 0),
-      0
-    ) || 0;
 
   return (
     <DashboardClient
       firstName={firstName}
       greeting={greeting}
-      totalDocs={totalDocs}
-      totalViews={totalViews}
-      totalLikes={totalLikes}
-      totalBookmarks={totalBookmarks}
-      recentDocs={recentDocsResult.data || []}
+      totalDocs={stats.totalDocs}
+      totalViews={stats.totalViews}
+      totalLikes={stats.totalLikes}
+      totalBookmarks={stats.totalBookmarks}
+      recentDocs={recentDocs}
     />
   );
 }
