@@ -116,7 +116,6 @@ export function DashboardSidebar({
           )}
         >
           {!isCollapsed ? (
-            <Link href="/settings">
               <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500 transition-colors cursor-pointer group">
                 <Avatar className="h-9 w-9 border border-slate-100 dark:border-slate-800 flex-shrink-0">
                   <AvatarImage src={avatarUrl} />
@@ -137,16 +136,7 @@ export function DashboardSidebar({
                   </p>
                   <p className="text-xs text-slate-500 truncate">{email}</p>
                 </div>
-                <Settings
-                  className={cn(
-                    "h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-all duration-300 ease-in-out flex-shrink-0",
-                    isCollapsed
-                      ? "opacity-0 w-0 translate-x-4"
-                      : "opacity-100 w-auto translate-x-0"
-                  )}
-                />
               </div>
-            </Link>
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>

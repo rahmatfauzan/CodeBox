@@ -58,17 +58,17 @@ export default async function EditDocumentPage({
   };
 
   return (
-    <div className="">
+    <>
       <div className="max-w-6xl container mx-auto">
-      <h1 className="text-3xl font-bold">
-        Edit Document: {documentData.title}
-      </h1>
+        <h1 className="text-3xl font-bold">
+          Edit Document: {documentData.title}
+        </h1>
       </div>
       <DocumentForm
         categories={categories || []}
         existingTags={existingTags}
         initialData={initialData} // ✅ Pass initial data
       />
-    </div>
+    </>
   );
 }

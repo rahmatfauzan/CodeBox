@@ -49,6 +49,8 @@ export default function LandingPageClient({
     }
   };
 
+  console.log("User in LandingPageClient:", user);
+
   return (
     <div>
       {/* Gunakan user dari props jika ada */}
@@ -94,7 +96,7 @@ export default function LandingPageClient({
               <Input
                 type="text"
                 placeholder="Cari snippet (ex: navbar react)..."
-                className="pl-12 h-16 rounded-full border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl text-lg shadow-2xl focus-visible:ring-2 focus-visible:ring-indigo-500 transition-all"
+                className="pl-12 h-16 rounded-full border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-2xl focus-visible:ring-2 focus-visible:ring-indigo-500 transition-all"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />

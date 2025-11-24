@@ -51,6 +51,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ user }: NavbarProps) {
+  console.log("Navbar user:", user);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");

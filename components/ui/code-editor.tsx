@@ -2,8 +2,8 @@
 
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { languages } from "@codemirror/language-data"; // Support banyak bahasa
-import { vscodeDark } from "@uiw/codemirror-theme-vscode"; // Tema VS Code
+import { languages } from "@codemirror/language-data";
+import { vscodeDark } from "@uiw/codemirror-theme-vscode";
 
 interface CodeEditorProps {
   value: string;
@@ -13,24 +13,32 @@ interface CodeEditorProps {
 
 export function CodeEditor({ value, onChange, placeholder }: CodeEditorProps) {
   return (
-    <div className="">
+    // 🔥 PERBAIKAN UTAMA:
+    // 1. w-full: Agar lebar mengikuti parent
+    // 2. rounded-xl & border: Agar ada bingkai rapi
+    // 3. overflow-hidden: Mencegah editor "bocor" keluar container
+    <div className="w-full border border-slate-200 dark:border-slate-800 bg-[#1e1e1e] overflow-hidden">
+
+
       {/* Area Editor */}
       <CodeMirror
         value={value}
         height="400px"
-        theme={vscodeDark} // Gunakan tema gelap ala VS Code
+        theme={vscodeDark}
         extensions={[
-          markdown({ base: markdownLanguage, codeLanguages: languages }), // Support Markdown + Auto Syntax
+          markdown({ base: markdownLanguage, codeLanguages: languages }),
         ]}
         onChange={(val) => onChange(val)}
         placeholder={placeholder}
-        className="text-base font-mono"
+        className="text-sm font-mono" // text-sm lebih pas untuk coding
         basicSetup={{
-          lineNumbers: true, // Tampilkan nomor baris
-          highlightActiveLine: true, // Highlight baris aktif
-          foldGutter: true, // Bisa lipat kode
-          tabSize: 2, // Tab = 2 spasi
+          lineNumbers: true,
+          highlightActiveLine: true,
+          foldGutter: true,
+          tabSize: 2,
         }}
+        // Opsional: CSS tambahan agar scrollbar rapi
+        style={{ fontSize: 14 }}
       />
     </div>
   );

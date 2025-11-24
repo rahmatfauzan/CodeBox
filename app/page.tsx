@@ -1,4 +1,3 @@
-
 import { createClient } from "@/lib/supabase/server";
 import LandingPageClient from "./landing-page-client";
 
@@ -14,7 +13,10 @@ export default async function LandingPage() {
     .from("trending_documents")
     .select("*")
     .limit(6);
-  const user = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (error) {
     console.error("Error fetching trending docs:", error);
   }
@@ -36,5 +38,5 @@ export default async function LandingPage() {
       },
     })) || [];
 
-  return <LandingPageClient trendingDocs={formattedDocs} user={user.data} />;
+  return <LandingPageClient trendingDocs={formattedDocs} user={user} />;
 }
