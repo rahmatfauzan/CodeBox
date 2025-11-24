@@ -14,6 +14,7 @@ import {
   Gauge,
   Tag,
 } from "lucide-react";
+import { Suspense } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,8 +33,7 @@ export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
   const supabase = await createClient();
 
-  // 1. Fetch data lengkap untuk Metadata
-  // Kita butuh author dan keywords juga
+  // Fetch minimal data untuk metadata saja
   const { data: doc } = await supabase
     .from("documents")
     .select(
@@ -59,7 +59,6 @@ export async function generateMetadata({ params }: PageProps) {
     };
   }
 
-  // 2. Siapkan Variabel Meta
   const title = doc.meta_title || doc.title;
   const description =
     doc.meta_description ||
@@ -75,9 +74,8 @@ export async function generateMetadata({ params }: PageProps) {
     "developer",
     "programming",
   ];
-  const images = doc.thumbnail_url ? [{ url: doc.thumbnail_url }] : []; // Atau masukkan URL gambar default logo CodeBox
+  const images = doc.thumbnail_url ? [{ url: doc.thumbnail_url }] : [];
 
-  // 3. Return Metadata Object
   return {
     title: `${title} | CodeBox`,
     description: description,
@@ -110,7 +108,7 @@ export default async function PublicSnippetPage({ params }: PageProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fetch document dengan join
+  // Fetch document dengan category, author, dan tags dalam 1 query
   const { data: doc, error } = await supabase
     .from("documents")
     .select(
@@ -122,6 +120,9 @@ export default async function PublicSnippetPage({ params }: PageProps) {
         username,
         avatar_url,
         is_verified
+      ),
+      document_tags(
+        tag:tags(id, name, slug)
       )
     `
     )
@@ -135,42 +136,35 @@ export default async function PublicSnippetPage({ params }: PageProps) {
     return notFound();
   }
 
-  // Fetch tags separately (many-to-many relationship)
-  const { data: documentTags } = await supabase
-    .from("document_tags")
-    .select(
-      `
-      tag:tags(id, name, slug)
-    `
-    )
-    .eq("document_id", doc.id);
+  // Extract tags dari document_tags
+  const tags =
+    (doc as any).document_tags?.map((dt: any) => dt.tag).filter(Boolean) || [];
 
-  const tags = documentTags?.map((dt: any) => dt.tag).filter(Boolean) || [];
-
-  // Check if user has liked/bookmarked (only if logged in)
+  // Check like & bookmark status secara parallel jika user login
   let hasLiked = false;
   let hasBookmarked = false;
 
   if (user) {
-    // Check like status
-    const { data: likeData } = await supabase
-      .from("likes")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("likeable_id", doc.id)
-      .eq("likeable_type", "document")
-      .maybeSingle();
-    hasLiked = !!likeData;
+    // Gunakan Promise.all untuk query parallel
+    const [likeResult, bookmarkResult] = await Promise.all([
+      supabase
+        .from("likes")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("likeable_id", doc.id)
+        .eq("likeable_type", "document")
+        .maybeSingle(),
+      supabase
+        .from("bookmarks")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("bookmarkable_id", doc.id)
+        .eq("bookmarkable_type", "document")
+        .maybeSingle(),
+    ]);
 
-    // Check bookmark status
-    const { data: bookmarkData } = await supabase
-      .from("bookmarks")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("bookmarkable_id", doc.id)
-      .eq("bookmarkable_type", "document")
-      .maybeSingle();
-    hasBookmarked = !!bookmarkData;
+    hasLiked = !!likeResult.data;
+    hasBookmarked = !!bookmarkResult.data;
   }
 
   // Mapping author data
@@ -208,9 +202,10 @@ export default async function PublicSnippetPage({ params }: PageProps) {
   };
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 mt-5 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500 ">
+    <div className="container mx-auto max-w-6xl px-4 mt-5 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Back Button */}
-      <BackButton/>
+      <BackButton />
+
       {/* Header Section */}
       <div className="space-y-6 mb-10">
         {/* Badge Row */}

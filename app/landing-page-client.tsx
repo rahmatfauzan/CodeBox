@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import { Navbar } from "@/components/layout/navbar";
-import { PublicDocumentCard } from "./(main)/(publick)/components/public-document-card";
+import { PublicDocumentCard } from "./(main)/(public)/components/public-document-card";
 
 interface LandingPageClientProps {
   trendingDocs: any[];
